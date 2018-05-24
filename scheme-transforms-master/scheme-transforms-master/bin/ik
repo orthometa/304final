@@ -1,0 +1,13 @@
+#!/usr/bin/python
+from external import optfunc, process
+
+@optfunc.main
+@optfunc.arghelp('debug', 'run ikarus in debug mode')
+def main(fn, debug=False):
+    """Usage: %prog <file> [options]"""
+    debug = debug and "--debug" or ""
+    settings = {
+        "debug" : debug,
+        "fn" : fn
+    }
+    process.call("ikarus %(debug)s --r6rs-script %(fn)s" % settings)

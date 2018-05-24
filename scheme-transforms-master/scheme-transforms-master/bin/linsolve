@@ -1,0 +1,21 @@
+#!/usr/bin/env python
+import sys
+import cPickle as pickle
+import numpy as np
+
+def solve():
+    Apre = pickle.load(sys.stdin)
+    bpre = pickle.load(sys.stdin)
+    # Apre = [[-1, 0.75], [0, -0.25]]
+    # bpre = [-0.125, -0.625]
+    # sys.stderr.write(str(Apre) + "\n")
+    # sys.stderr.write(str(bpre) + "\n")
+    A = np.array(Apre)
+    b = np.array(bpre)
+    x = np.linalg.solve(A, b).tolist()
+    # sys.stderr.write(str(x) + "\n")
+    pickle.dump(x, sys.stdout)
+    sys.stdout.flush()
+    
+if __name__ == "__main__":
+    solve()

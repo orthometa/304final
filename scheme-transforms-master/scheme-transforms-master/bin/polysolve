@@ -1,0 +1,103 @@
+#!/usr/bin/python
+from polycommon import infix, unknowns, timestamp, log
+import subprocess
+import sys
+import re
+import pickle
+import os
+
+MATHEMATICA_PATHS = [
+  "/usr/bin/math",
+  "/usr/local/bin/math",
+  "/Applications/Mathematica.app/Contents/MacOS/MathKernel",
+  "/Applications/Mathematica Home Edition.app/Contents/MacOS/MathKernel"
+  ]
+
+MATHEMATICA_CMD = "%(mathpath)s -noprompt -script %(filename)s"
+ 
+eqns = [["=", ["+", ["*", 2, "x"], ["*", 3, "y"]], 4],
+        ["=", ["+", ["*", 6, "x"], ["*", 1, "y"]], 8],
+        ["=", ["*", "z", "z"], 3]]
+
+TEMPLATE = """
+Sol = NSolve[{ 
+%(equations)s
+           },
+           {%(variables)s}];
+
+Print[Sol];
+"""
+
+def mathpath():
+    for path in MATHEMATICA_PATHS:
+        if os.path.exists(path):
+            return path
+    return False
+
+def eqns_text(eqns):
+    return "\n".join([eqn_text(eqn) + "," for eqn in eqns])[:-1]
+
+def eqn_text(eqn):
+    if type(eqn) == type([]):
+        return "(" + " ".join(infix([eqn_text(i) for i in eqn])) + ")"
+    else:
+        if eqn == "=":
+            return "=="
+        else:
+            return str(eqn)
+
+def parse_solution(solution_text):
+    try:
+        sol = eval(solution_text)
+    except:
+        sol = {}
+    return sol
+        
+def parse_solutions(txt):
+    solutions = []
+    for solution_txt in re.findall("\{[^\{]+?\}", txt):
+        solution = solution_txt.replace("->", ":")
+        solution = re.sub("([a-z][0-9]*[a-z]?[0-9]*)", "'\\1'", solution)
+        solution = [list(obj) for obj in parse_solution(solution).items()]
+        solutions.append(solution)
+    return solutions
+
+def solve(eqns):
+    equations = eqns_text(eqns)    
+    task = TEMPLATE % { "equations" : equations,
+                        "variables" : ", ".join(unknowns(eqns)) }
+    log("task: %s" % task)
+    filename = "/tmp/poly.%s.in" % timestamp()
+    f = open(filename, "w")
+    f.write(task)
+    f.close()
+    cmd = MATHEMATICA_CMD % { "filename" : filename, "mathpath" : mathpath() }
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    results = ""
+    while True:
+        out = process.stdout.read(1)
+        if out == '' and process.poll() != None:
+            break
+        if out != '':
+            results += out
+    log("results: %s" % results)
+    parsed_results = parse_solutions(results)
+    log("parsed results: %s" % parsed_results)
+    return parsed_results
+
+def pickle_solve():
+    eqns = []
+    while True:
+        try:
+            eqn = pickle.load(sys.stdin)
+            if eqn == "solve":
+                break
+            eqns.append(eqn)
+        except EOFError:
+            break
+    results = solve(eqns)
+    pickle.dump(results, sys.stdout)
+    sys.stdout.flush()
+
+if __name__ == "__main__":
+    pickle_solve()
